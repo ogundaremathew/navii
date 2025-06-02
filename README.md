@@ -59,6 +59,9 @@ make install
 
 # Download geographical data
 navii -download-data
+
+# Or specify a custom output path
+navii -download-data -output /path/to/your/data.json
 ```
 
 ### Method 2: Using Go Commands
@@ -69,6 +72,9 @@ go install ./cmd/navii
 
 # Download geographical data
 navii -download-data
+
+# Or specify a custom output path
+navii -download-data -output /path/to/your/data.json
 ```
 
 ### Method 3: Direct Build and Run
@@ -100,6 +106,38 @@ func main() {
 	
 	// Initialize your application
 	// (See usage examples below)
+}
+```
+
+### Custom Data File Paths
+
+Navii supports custom data file paths for flexible deployment scenarios:
+
+```go
+package main
+
+import (
+	"log"
+	"github.com/ogundaremathew/navii"
+)
+
+func main() {
+	// Set a custom absolute path for the data file
+	navii.SetDataFilePath("/path/to/your/custom/location_data.json")
+	
+	// Now all location data operations will use this path
+	data := navii.GetLocationData()
+	
+	// Or load data from a specific path without changing the global setting
+	data, err := navii.GetLocationDataFromPath("/another/path/data.json")
+	if err != nil {
+		log.Printf("Failed to load data: %v", err)
+	}
+	
+	// Check if data is populated
+	if navii.IsDataPopulated() {
+		log.Println("Geographical data is available")
+	}
 }
 ```
 

@@ -3,6 +3,7 @@ package navii
 
 import (
 	"fmt"
+	"log"
 )
 
 // Example usage function
@@ -16,15 +17,9 @@ func ExampleUsage() error {
 
 	// Initialize with options
 	err = sm.Init(InitOptions{
-		Format:        NavFormatCityStateCountry,
+		Format:        NavFormatCityState,
 		TargetCountry: "US",
 	})
-	if err != nil {
-		return err
-	}
-
-	// Add some sample data
-	err = sm.Populate()
 	if err != nil {
 		return err
 	}
@@ -35,6 +30,8 @@ func ExampleUsage() error {
 		fmt.Printf("Current navigation: %+v\n", nav)
 	}
 
+	fmt.Println("Navigating to next level...")
+	log.Println(nav)
 	// Get next navigation
 	nextNav, err := sm.GetNextNav()
 	if err != nil {
@@ -49,4 +46,8 @@ func ExampleUsage() error {
 	sm.Debug()
 
 	return nil
+}
+
+func main() {
+	ExampleUsage()
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -90,7 +91,7 @@ func NewDataDownloader() *DataDownloader {
 	}
 
 	return &DataDownloader{
-		httpClient:       &http.Client{Timeout: 30 * time.Second},
+		httpClient:       &http.Client{Timeout: 240 * time.Second},
 		postalCodeRegexs: postalCodeRegexs,
 		targetCountries:  targetCountries,
 	}
@@ -222,8 +223,7 @@ func (dd *DataDownloader) downloadPostalCodes() ([]PostalCode, error) {
 
 		postalCodes, err := dd.downloadCountryPostalCodes(countryCode)
 		if err != nil {
-			fmt.Printf("Warning: Failed to download postal codes for %s: %v\n", countryCode, err)
-			continue
+			return nil, fmt.Errorf("failed to download postal codes for %s: %w", countryCode, err)
 		}
 
 		allPostalCodes = append(allPostalCodes, postalCodes...)
@@ -235,14 +235,16 @@ func (dd *DataDownloader) downloadPostalCodes() ([]PostalCode, error) {
 
 // downloadCountryPostalCodes downloads postal codes for a specific country
 func (dd *DataDownloader) downloadCountryPostalCodes(countryCode string) ([]PostalCode, error) {
-	isFullFormat := contains([]string{"NL", "CA", "GB"}, countryCode)
+	isFullFormatCountry := contains([]string{"NL", "CA", "GB"}, countryCode)
 	suffix := ""
-	if isFullFormat {
-		suffix = "_full"
+	targetFileSuffix := ""
+	if isFullFormatCountry {
+		suffix = "_full.csv"
+		targetFileSuffix = "_full"
 	}
 
 	url := fmt.Sprintf("https://download.geonames.org/export/zip/%s%s.zip", countryCode, suffix)
-	targetFile := fmt.Sprintf("%s%s.txt", countryCode, suffix)
+	targetFile := fmt.Sprintf("%s%s.txt", countryCode, targetFileSuffix)
 
 	// Download ZIP file
 	zipData, err := dd.downloadFile(url)
@@ -378,28 +380,23 @@ func (dd *DataDownloader) standardizePostalCode(postalCode, countryCode string) 
 	return postalCode
 }
 
-// writeLocationFile writes the location data to a Go file
+// writeLocationFile writes the location data to a JSON file
 func (dd *DataDownloader) writeLocationFile(outputPath string, data LocationData) error {
-	cityDataJSON, err := json.MarshalIndent(data.CityData, "", "  ")
+	// Convert to absolute path
+	absPath, err := filepath.Abs(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// Set the absolute path in location.go for consistency
+	SetDataFilePath(absPath)
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	zipDataJSON, err := json.MarshalIndent(data.ZipData, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	content := fmt.Sprintf(`package navii
-
-// LocationData contains geographical data populated during installation
-var PopulatedLocationData = &LocationData{
-	CityData: %s,
-	ZipData: %s,
-}
-`, string(cityDataJSON), string(zipDataJSON))
-
-	return os.WriteFile(outputPath, []byte(content), 0644)
+	return os.WriteFile(absPath, jsonData, 0644)
 }
 
 // contains checks if a slice contains a string
@@ -418,10 +415,10 @@ func contains(slice []string, item string) bool {
 
 // RunPostInstall runs the post-installation data download process
 func RunPostInstall() error {
-	fmt.Println("Starting yuniq geographical data download...")
+	fmt.Println("Starting navii geographical data download...")
 
 	downloader := NewDataDownloader()
-	outputPath := "location_data.go"
+	outputPath := "location_data.json"
 
 	if err := downloader.DownloadAndProcessData(outputPath); err != nil {
 		return fmt.Errorf("post-install failed: %w", err)

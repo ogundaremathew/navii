@@ -34,7 +34,7 @@ go.work
 ehthumbs.db
 Thumbs.db
 
-# Navii specific files
+# Navii-specific data files
 *.db
 *.sqlite
 *.sqlite3
