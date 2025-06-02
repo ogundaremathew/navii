@@ -413,17 +413,114 @@ func contains(slice []string, item string) bool {
 // MAIN COMMAND LINE INTERFACE
 // ============================================================================
 
-// RunPostInstall runs the post-installation data download process
-func RunPostInstall() error {
-	fmt.Println("Starting navii geographical data download...")
-
-	downloader := NewDataDownloader()
-	outputPath := "location_data.json"
-
-	if err := downloader.DownloadAndProcessData(outputPath); err != nil {
-		return fmt.Errorf("post-install failed: %w", err)
+// ShouldDownloadData determines if data should be downloaded based on database state and file conditions
+func ShouldDownloadData(dbPath, dataFilePath string) (bool, error) {
+	// Check if database exists and has data
+	if dbExists, hasData := checkDatabaseState(dbPath); dbExists && hasData {
+		fmt.Println("Database already populated, skipping download")
+		return false, nil
 	}
 
-	fmt.Printf("✓ Geographical data successfully downloaded and saved to %s\n", outputPath)
+	// Check if data file exists and is valid
+	if fileExists, isValid, isRecent := checkDataFileState(dataFilePath); fileExists {
+		if isValid && isRecent {
+			fmt.Println("Valid and recent data file found, skipping download")
+			return false, nil
+		}
+		if !isValid {
+			fmt.Println("Data file exists but is invalid, will re-download")
+		}
+		if !isRecent {
+			fmt.Println("Data file exists but is older than 24 hours, will re-download")
+		}
+	}
+
+	return true, nil
+}
+
+// checkDatabaseState checks if database exists and contains data
+func checkDatabaseState(dbPath string) (exists bool, hasData bool) {
+	if dbPath == "" {
+		dbPath = ".yuniq.db"
+	}
+
+	// Check if database file exists
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		return false, false
+	}
+
+	// Try to open database and check for data
+	db, err := NewDB(dbPath)
+	if err != nil {
+		return true, false
+	}
+	defer db.Close()
+
+	// Check if database has countries (indicating it's populated)
+	count, err := db.CountTotal()
+	if err != nil {
+		return true, false
+	}
+
+	return true, count > 0
+}
+
+// checkDataFileState checks if data file exists, is valid, and is recent
+func checkDataFileState(filePath string) (exists bool, isValid bool, isRecent bool) {
+	// Check if file exists
+	fileInfo, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		return false, false, false
+	}
+
+	// Check if file is recent (less than 24 hours old)
+	isRecent = time.Since(fileInfo.ModTime()) < 24*time.Hour
+
+	// Check if file content is valid
+	isValid = isValidDataFile(filePath)
+
+	return true, isValid, isRecent
+}
+
+// isValidDataFile checks if the data file contains expected structure
+func isValidDataFile(filePath string) bool {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return false
+	}
+
+	var locationData LocationData
+	if err := json.Unmarshal(data, &locationData); err != nil {
+		return false
+	}
+
+	// Check if data has expected structure and content
+	return len(locationData.CityData) > 0 || len(locationData.ZipData) > 0
+}
+
+// SmartDownloadData downloads data only if needed based on database and file state
+func SmartDownloadData(dbPath, dataFilePath string) error {
+	shouldDownload, err := ShouldDownloadData(dbPath, dataFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to check download conditions: %w", err)
+	}
+
+	if !shouldDownload {
+		return nil
+	}
+
+	fmt.Println("Starting navii geographical data download...")
+	downloader := NewDataDownloader()
+
+	if err := downloader.DownloadAndProcessData(dataFilePath); err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+
+	fmt.Printf("✓ Geographical data successfully downloaded and saved to %s\n", dataFilePath)
 	return nil
+}
+
+// RunPostInstall runs the post-installation data download process
+func RunPostInstall() error {
+	return SmartDownloadData("", "location_data.json")
 }

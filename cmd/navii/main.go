@@ -25,15 +25,14 @@ func main() {
 	if *downloadData {
 		fmt.Println("🌍 Navii Data Downloader")
 		fmt.Println("========================")
-		fmt.Printf("Downloading geographical data to: %s\n\n", *outputPath)
+		fmt.Printf("Ensuring geographical data availability at: %s\n\n", *outputPath)
 
-		downloader := navii.NewDataDownloader()
-		err := downloader.DownloadAndProcessData(*outputPath)
+		err := navii.SmartDownloadData("", *outputPath)
 		if err != nil {
-			log.Fatalf("❌ Failed to download geographical data: %v", err)
+			log.Fatalf("❌ Failed to ensure data availability: %v", err)
 		}
 
-		fmt.Println("✅ Geographical data downloaded successfully!")
+		fmt.Println("✅ Geographical data is ready!")
 		fmt.Println("You can now use Navii in your applications.")
 		return
 	}

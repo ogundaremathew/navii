@@ -8,6 +8,12 @@ import (
 
 // Example usage function
 func ExampleUsage() error {
+	// Smart download - only downloads if database is empty or data file is stale/invalid
+	err := SmartDownloadData("example.db", "location_data.json")
+	if err != nil {
+		return fmt.Errorf("failed to ensure data availability: %w", err)
+	}
+
 	// Create state manager
 	sm, err := NewStateManager("example.db")
 	if err != nil {
@@ -46,8 +52,4 @@ func ExampleUsage() error {
 	sm.Debug()
 
 	return nil
-}
-
-func main() {
-	ExampleUsage()
 }

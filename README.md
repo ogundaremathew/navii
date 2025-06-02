@@ -88,6 +88,7 @@ make download-data
 
 If you prefer to integrate the download into your application:
 
+#### Smart Download (Recommended)
 ```go
 package main
 
@@ -97,15 +98,31 @@ import (
 )
 
 func main() {
-	// Download and process geographical data
-	downloader := navii.NewDataDownloader()
-	err := downloader.DownloadAndProcessData("location_data.json")
+	// Smart download - only downloads if needed
+	err := navii.SmartDownloadData("", "location_data.json")
 	if err != nil {
-		log.Fatalf("Failed to download geographical data: %v", err)
+		log.Fatalf("Failed to ensure data availability: %v", err)
 	}
 	
 	// Initialize your application
 	// (See usage examples below)
+}
+```
+
+The smart download automatically:
+- ✅ Skips download if database already contains data
+- ✅ Skips download if data file exists, is valid, and less than 24 hours old
+- ✅ Re-downloads if data file is older than 24 hours
+- ✅ Re-downloads if data file exists but is invalid/corrupted
+- ✅ Downloads if no data file exists
+
+#### Manual Download (Force Download)
+```go
+// Force download regardless of existing data
+downloader := navii.NewDataDownloader()
+err := downloader.DownloadAndProcessData("location_data.json")
+if err != nil {
+	log.Fatalf("Failed to download geographical data: %v", err)
 }
 ```
 
